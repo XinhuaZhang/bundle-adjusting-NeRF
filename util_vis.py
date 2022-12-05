@@ -11,6 +11,7 @@ import imageio
 from easydict import EasyDict as edict
 
 import camera
+import math
 
 
 @torch.no_grad()
@@ -19,6 +20,7 @@ def tb_image(
 ):
     images = preprocess_vis_image(opt, images, from_range=from_range, cmap=cmap)
     num_H, num_W = num_vis or opt.tb.num_images
+
     images = images[: num_H * num_W]
     image_grid = torchvision.utils.make_grid(images[:, :3], nrow=num_W, pad_value=1.0)
     if images.shape[1] == 4:
@@ -28,6 +30,45 @@ def tb_image(
         image_grid = torch.cat([image_grid, mask_grid], dim=0)
     tag = "{0}/{1}".format(group, name)
     tb.add_image(tag, image_grid, step)
+
+
+@torch.no_grad()
+def tb_image_gt_recon(
+    opt, tb, step, group, name, gt, recon, from_range=(0, 1), cmap="gray"
+):
+    num_W = 5
+    num_img = gt.shape[0]
+    num_H = num_img // num_W
+
+    for i in range(num_H):
+        img_gt = preprocess_vis_image(
+            opt, gt[i * num_W : (i + 1) * num_W], from_range=from_range, cmap=cmap
+        )
+        img_recon = preprocess_vis_image(
+            opt, recon[i * num_W : (i + 1) * num_W], from_range=from_range, cmap=cmap
+        )
+        images = torch.cat((img_gt, img_recon), 0)
+        image_grid = torchvision.utils.make_grid(
+            images[:, :3], nrow=num_W, pad_value=1.0
+        )
+        tag = "{0}/{1}_{2}".format(group, name, i)
+        tb.add_image(tag, image_grid, step)
+
+    num_rem = num_img - num_W * num_H
+
+    if num_rem > 0:
+        img_gt = preprocess_vis_image(
+            opt, gt[-num_rem:], from_range=from_range, cmap=cmap
+        )
+        img_recon = preprocess_vis_image(
+            opt, recon[-num_rem:], from_range=from_range, cmap=cmap
+        )
+        images = torch.cat((img_gt, img_recon), 0)
+        image_grid = torchvision.utils.make_grid(
+            images[:, :3], nrow=num_rem, pad_value=1.0
+        )
+        tag = "{0}/{1}_{2}".format(group, name, num_H)
+        tb.add_image(tag, image_grid, step)
 
 
 def preprocess_vis_image(opt, images, from_range=(0, 1), cmap="gray"):

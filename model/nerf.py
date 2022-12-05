@@ -102,7 +102,25 @@ class Model(base.Model):
     @torch.no_grad()
     def visualize(self, opt, var, step=0, split="train", eps=1e-10):
         if opt.tb:
-            util_vis.tb_image(opt, self.tb, step, split, "image", var.image)
+            # util_vis.tb_image(opt, self.tb, step, split, "image", var.image)
+            # plot reconstructions
+            if split == "train":
+                img = torch.zeros(
+                    len(self.train_loader), 3, opt.H, opt.W, device=opt.device
+                )
+                i = 0
+                for batch in self.train_loader_non_shuffle:
+                    # train iteration
+                    var1 = edict(batch)
+                    var1 = util.move_to_device(var1, opt.device)
+                    var1 = self.graph.forward(opt, var1, mode="val")
+                    img[i, :, :, :] = var1.rgb.view(opt.H, opt.W, 3).permute(2, 0, 1)
+                    i += 1
+
+                util_vis.tb_image_gt_recon(
+                    opt, self.tb, step, split, "recon", var.image, img
+                )
+
             if not opt.nerf.rand_rays or split != "train":
                 invdepth = (
                     (1 - var.depth) / var.opacity
