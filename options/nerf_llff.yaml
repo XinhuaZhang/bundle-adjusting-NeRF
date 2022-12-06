@@ -26,7 +26,7 @@ nerf:                                                       # NeRF-specific opti
 data:                                                       # data options
     dataset: llff                                           # dataset name
     scene: fern                                             # scene name
-    image_size: [480,640]                                   # input image sizes [height,width]
+    image_size: [240, 320] # [480,640]                                   # input image sizes [height,width]
     num_workers: 4                                          # number of parallel workers for data loading
     preload: true                                           # preload the entire dataset into the memory
     val_ratio: 0.1                                          # ratio of sequence split for validation
@@ -52,6 +52,6 @@ max_iter: 200000                                            # train to maximum n
 
 freq:                                                       # periodic actions during training
     scalar: 200                                             # log losses and scalar states (every N iterations)
-    vis: 1000                                               # visualize results (every N iterations)
-    val: 2000                                               # validate on val set (every N iterations)
+    vis: 5000                                               # visualize results (every N iterations)
+    val: 5000                                               # validate on val set (every N iterations)
     ckpt: 5000                                              # save checkpoint (every N iterations)

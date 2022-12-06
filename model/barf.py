@@ -111,7 +111,7 @@ class Model(nerf.Model):
         # get ground-truth (canonical) camera poses
         pose_GT = self.train_data.get_all_camera_poses(opt).to(opt.device)
         # add synthetic pose perturbation to all training data
-        if opt.data.dataset == "blender":
+        if opt.data.dataset == "blender" or opt.data.dataset == "llff":
             pose = pose_GT
             if opt.camera.noise:
                 pose = camera.pose.compose([self.graph.pose_noise, pose])
@@ -257,7 +257,7 @@ class Graph(nerf.Graph):
     def get_pose(self, opt, var, mode=None):
         if mode == "train":
             # add the pre-generated pose perturbations
-            if opt.data.dataset == "blender":
+            if opt.data.dataset == "blender" or opt.data.dataset == "llff":
                 if opt.camera.noise:
                     var.pose_noise = self.pose_noise[var.idx]
                     pose = camera.pose.compose([var.pose_noise, var.pose])
@@ -270,17 +270,29 @@ class Graph(nerf.Graph):
             pose_refine = camera.lie.se3_to_SE3(var.se3_refine)
             pose = camera.pose.compose([pose_refine, pose])
         elif mode in ["val", "eval", "test-optim"]:
-            # align test pose to refined coordinate system (up to sim3)
-            sim3 = self.sim3
-            center = torch.zeros(1, 1, 3, device=opt.device)
-            center = camera.cam2world(center, var.pose)[:, 0]  # [N,3]
-            center_aligned = (center - sim3.t0) / sim3.s0 @ sim3.R * sim3.s1 + sim3.t1
-            R_aligned = var.pose[..., :3] @ self.sim3.R
-            t_aligned = (-R_aligned @ center_aligned[..., None])[..., 0]
-            pose = camera.pose(R=R_aligned, t=t_aligned)
-            # additionally factorize the remaining pose imperfection
-            if opt.optim.test_photo and mode != "val":
-                pose = camera.pose.compose([var.pose_refine_test, pose])
+            # # align test pose to refined coordinate system (up to sim3)
+            # sim3 = self.sim3
+            # center = torch.zeros(1, 1, 3, device=opt.device)
+            # center = camera.cam2world(center, var.pose)[:, 0]  # [N,3]
+            # center_aligned = (center - sim3.t0) / sim3.s0 @ sim3.R * sim3.s1 + sim3.t1
+            # R_aligned = var.pose[..., :3] @ self.sim3.R
+            # t_aligned = (-R_aligned @ center_aligned[..., None])[..., 0]
+            # pose = camera.pose(R=R_aligned, t=t_aligned)
+            # # additionally factorize the remaining pose imperfection
+            # if opt.optim.test_photo and mode != "val":
+            #     pose = camera.pose.compose([var.pose_refine_test, pose])
+            if opt.data.dataset == "blender" or opt.data.dataset == "llff":
+                if opt.camera.noise:
+                    var.pose_noise = self.pose_noise[var.idx]
+                    pose = camera.pose.compose([var.pose_noise, var.pose])
+                else:
+                    pose = var.pose
+            else:
+                pose = self.pose_eye
+            # add learnable pose correction
+            var.se3_refine = self.se3_refine.weight[var.idx]
+            pose_refine = camera.lie.se3_to_SE3(var.se3_refine)
+            pose = camera.pose.compose([pose_refine, pose])
         else:
             pose = var.pose
         return pose

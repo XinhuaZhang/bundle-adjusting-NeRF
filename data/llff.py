@@ -17,7 +17,8 @@ from util import log, debug
 
 class Dataset(base.Dataset):
     def __init__(self, opt, split="train", subset=None):
-        self.raw_H, self.raw_W = 3024, 4032
+        # self.raw_H, self.raw_W = 3024, 4032
+        self.raw_H, self.raw_W = 1080, 1920
         super().__init__(opt, split)
         self.root = opt.data.root or "data/llff"
         self.path = "{}/{}".format(self.root, opt.data.scene)

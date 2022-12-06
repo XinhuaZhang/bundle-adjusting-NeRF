@@ -111,7 +111,8 @@ def color_border(images, colors, width=3):
 
 @torch.no_grad()
 def vis_cameras(opt, vis, step, poses=[], colors=["blue", "magenta"], plot_dist=True):
-    win_name = "{}/{}".format(opt.group, opt.name)
+    # win_name = "{}/{}".format(opt.group, opt.name)
+    win_name = "{}/{}_{}".format(opt.group, opt.name, step)
     data = []
     # set up plots
     centers = []
