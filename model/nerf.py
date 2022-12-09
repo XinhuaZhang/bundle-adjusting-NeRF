@@ -14,6 +14,8 @@ import util, util_vis
 from util import log, debug
 from . import base
 import camera
+from skimage.metrics import structural_similarity
+from skimage.metrics import mean_squared_error
 
 # ============================ main engine for training and evaluation ============================
 
@@ -103,6 +105,7 @@ class Model(base.Model):
     def visualize(self, opt, var, step=0, split="train", eps=1e-10):
         if opt.tb:
             # util_vis.tb_image(opt, self.tb, step, split, "image", var.image)
+
             # plot reconstructions
             if split == "train":
                 img = torch.zeros(
@@ -116,6 +119,15 @@ class Model(base.Model):
                     var1 = self.graph.forward(opt, var1, mode="val")
                     img[i, :, :, :] = var1.rgb.view(opt.H, opt.W, 3).permute(2, 0, 1)
                     i += 1
+
+                # structure similarity and MSE
+                gt = util_vis.preprocess_vis_image(opt, var.image)
+                recon = util_vis.preprocess_vis_image(opt, img)
+
+                mse = self.graph.MSE_loss(gt, recon).item()
+                print("mse:", mse)
+                ssim = pytorch_ssim.ssim(gt, recon).item()
+                print("ssim:", ssim)
 
                 util_vis.tb_image_gt_recon(
                     opt, self.tb, step, split, "recon", var.image, img
