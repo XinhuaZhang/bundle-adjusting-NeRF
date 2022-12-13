@@ -28,8 +28,9 @@ def main():
 
         m.restore_checkpoint(opt)
         if opt.data.dataset in ["blender", "llff"]:
+            print("hehe")
             m.evaluate_full(opt)
-        m.generate_videos_synthesis(opt)
+        # m.generate_videos_synthesis(opt)
 
 
 if __name__ == "__main__":

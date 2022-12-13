@@ -128,8 +128,9 @@ class Model(nerf.Model):
         center = torch.zeros(1, 1, 3, device=opt.device)
         center_pred = camera.cam2world(center, pose)[:, 0]  # [N,3]
         center_GT = camera.cam2world(center, pose_GT)[:, 0]  # [N,3]
+        sum_singlar_value = 0
         try:
-            sim3 = camera.procrustes_analysis(center_GT, center_pred)
+            sim3, sum_singlar_value = camera.procrustes_analysis(center_GT, center_pred)
         except:
             print("warning: SVD did not converge...")
             sim3 = edict(t0=0, t1=0, s0=1, s1=1, R=torch.eye(3, device=opt.device))
@@ -140,7 +141,7 @@ class Model(nerf.Model):
         R_aligned = pose[..., :3] @ sim3.R.t()
         t_aligned = (-R_aligned @ center_aligned[..., None])[..., 0]
         pose_aligned = camera.pose(R=R_aligned, t=t_aligned)
-        return pose_aligned, sim3
+        return pose_aligned, sim3, sum_singlar_value
 
     @torch.no_grad()
     def evaluate_camera_alignment(self, opt, pose_aligned, pose_GT):
@@ -157,19 +158,22 @@ class Model(nerf.Model):
         self.graph.eval()
         # evaluate rotation/translation
         pose, pose_GT = self.get_all_training_poses(opt)
-        pose_aligned, self.graph.sim3 = self.prealign_cameras(opt, pose, pose_GT)
+        pose_aligned, self.graph.sim3, sum_singlar_value = self.prealign_cameras(
+            opt, pose, pose_GT
+        )
         error = self.evaluate_camera_alignment(opt, pose_aligned, pose_GT)
         print("--------------------------")
         print("rot:   {:8.3f}".format(np.rad2deg(error.R.mean().cpu())))
         print("trans: {:10.5f}".format(error.t.mean()))
+        print("sum_singlar_value: {:10.5f}".format(sum_singlar_value))
         print("--------------------------")
-        # dump numbers
-        quant_fname = "{}/quant_pose.txt".format(opt.output_path)
-        with open(quant_fname, "w") as file:
-            for i, (err_R, err_t) in enumerate(zip(error.R, error.t)):
-                file.write("{} {} {}\n".format(i, err_R.item(), err_t.item()))
-        # evaluate novel view synthesis
-        super().evaluate_full(opt)
+        # # dump numbers
+        # quant_fname = "{}/quant_pose.txt".format(opt.output_path)
+        # with open(quant_fname, "w") as file:
+        #     for i, (err_R, err_t) in enumerate(zip(error.R, error.t)):
+        #         file.write("{} {} {}\n".format(i, err_R.item(), err_t.item()))
+        # # evaluate novel view synthesis
+        # super().evaluate_full(opt)
 
     @torch.enable_grad()
     def evaluate_test_time_photometric_optim(self, opt, var):
@@ -210,7 +214,7 @@ class Model(nerf.Model):
             # get the camera poses
             pose, pose_ref = self.get_all_training_poses(opt)
             if opt.data.dataset in ["blender", "llff"]:
-                pose_aligned, _ = self.prealign_cameras(opt, pose, pose_ref)
+                pose_aligned, _, _ = self.prealign_cameras(opt, pose, pose_ref)
                 pose_aligned, pose_ref = (
                     pose_aligned.detach().cpu(),
                     pose_ref.detach().cpu(),
